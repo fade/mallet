@@ -66,6 +66,11 @@ definitions.
 `unused-local-functions` reports `split` and `string=` as unused local
 functions. Neither is a local function; there is no `labels` form here.
 
+The misparse is not specific to any particular operators: whatever appears in
+the binding's value form gets reported. Two independent repros of this case
+flagged different pairs — `split`/`string=` and `list`/`string=` — according to
+what each happened to call there.
+
 **Impact.** Directly contradicts the acceptance criteria — this is a rule prone
 to false positives on correct code. Worse, the natural response is to rename a
 perfectly good variable to satisfy the linter, degrading the source to quiet a
