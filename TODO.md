@@ -81,20 +81,46 @@ binding list is never an operator — rather than by name alone.
 
 ---
 
-## 3. `no-ignore-errors` does not descend into backquoted macro templates
+## 3. `no-ignore-errors` skips `defmacro` forms entirely
 
 **Coverage hole. Silent, and invisible to a whole-tree count.**
 
-A masking handler written inside a `defmacro` expansion template is neither
-reported nor suppressible. It is simply unenforced, so the gate cannot see an
-existing site and equally cannot see a new one added there later.
+`src/rules/forms/no-ignore-errors.lisp` skips the whole form:
 
 ```lisp
-(defmacro with-thing ((var) &body body)
-  `(let ((,var (acquire)))
-     (unwind-protect (progn ,@body)
-       (ignore-errors (release ,var)))))   ; never reported
+;; DEFMACRO: skip entirely (macro expansion code, not runtime)
+((form-head-name-p head "DEFMACRO")
+ nil)
 ```
+
+**The rationale is half right, and that is the bug.** "Macro expansion code, not
+runtime" holds for the macro's *body* — code that runs at expansion time — but
+not for the *expansion template*, which becomes runtime code at every call site.
+A masking handler in a template is neither reported nor suppressible; it is
+simply unenforced, so the gate cannot see an existing site and equally cannot
+see a new one added later.
+
+Backquote is **not** the trigger, and the distinction matters for anyone fixing
+this. A control set, all in one file:
+
+```lisp
+(defmacro m (x) (ignore-errors (list x)))            ; NOT reported — no backquote involved
+(defun d (x) `(foo ,(ignore-errors (list x))))       ; reported — backquote is not the test
+(define-compiler-macro cm (x) (ignore-errors ...))   ; reported — does not share the hole
+(defun plain (x) (ignore-errors (list x)))           ; reported — control
+```
+
+So the skip is broader than "templates" in one direction — the macro's own body
+goes unchecked too — and narrower in another: `define-compiler-macro` and
+`macrolet` are unaffected, and other rules descend into `defmacro` normally.
+
+**Suggested fix.** Distinguish the macro's body from its expansion template
+rather than skipping the form. The template is runtime code and should be
+checked; the body arguably should not.
+
+**No secondary detector exists.** `stale-suppression` cannot backstop this: a
+suppression written inside a macro matches nothing and surfaces loudly as stale,
+but the silent case is the reverse — no suppression, no violation, no signal.
 
 **Impact.** Test scaffolding is where this concentrates — setup and teardown
 wrapped in a `with-…` macro is both where masking accumulates and where it is
