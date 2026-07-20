@@ -71,13 +71,40 @@ the binding's value form gets reported. Two independent repros of this case
 flagged different pairs — `split`/`string=` and `list`/`string=` — according to
 what each happened to call there.
 
+**Mechanism, from `src/rules/forms/local-functions.lisp` and
+`src/rules/base.lisp`.** The recursive checker dispatches on `(first expr)` for
+any cons it reaches, and `symbol-matches-p` compares the *name* only — it
+verifies the string is a parser symbol and matches, with no check of the
+position the form occupies. Recursion descends into binding lists, where a
+binding `(labels <value-form>)` is indistinguishable from a call form, so it is
+handed to `check-labels-bindings` and its value form is read as a list of local
+function definitions.
+
+Confirmed by a control set holding the value form constant and varying only the
+binding name, so the name is the only free variable:
+
+```lisp
+(let* ((c (string-downcase n)) (labels   (if (string= c "") '() (list c)))) …)  ; REPORTS
+(let* ((c (string-downcase n)) (flet     (if (string= c "") '() (list c)))) …)  ; REPORTS
+(let* ((c (string-downcase n)) (macrolet (if (string= c "") '() (list c)))) …)  ; silent
+(let* ((c (string-downcase n)) (ordinary (if (string= c "") '() (list c)))) …)  ; silent — control
+```
+
+So `flet` shares the dispatch and the defect; **`macrolet` does not**, being
+absent from this rule's dispatched heads. An earlier draft claimed `macrolet`
+was affected — that was inferred rather than read, and the control refutes it.
+
+Note the value form must contain conses that can be read as definitions. A
+binding named `labels` whose value is a single call such as `(list c)` does not
+report, so a minimal repro needs a value form with nested call shapes.
+
 **Impact.** Directly contradicts the acceptance criteria — this is a rule prone
 to false positives on correct code. Worse, the natural response is to rename a
 perfectly good variable to satisfy the linter, degrading the source to quiet a
-tool bug. `flet` and `macrolet` should be checked for the same collision.
+tool bug.
 
-**Suggested fix.** Resolve the head symbol positionally — a binding name in a
-binding list is never an operator — rather than by name alone.
+**Suggested fix.** Resolve the head positionally. A binding-list entry is never
+an operator form, and the checker has the context to know it is inside one.
 
 ---
 
