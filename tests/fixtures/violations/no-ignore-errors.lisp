@@ -14,7 +14,8 @@
     (with-open-file (stream path)
       (read stream))))
 
-;; Good: handler-case with specific condition
+;; Good for this rule: handler-case rather than ignore-errors.
+;; The blanket clause is reported by broad-handler-swallow instead.
 (defun safe-parse (str)
   (handler-case (parse-integer str)
     (error () nil)))

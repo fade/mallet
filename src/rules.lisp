@@ -18,6 +18,7 @@
                  #:mallet/rules/forms/runtime-intern
                  #:mallet/rules/forms/runtime-unintern
                  #:mallet/rules/forms/no-ignore-errors
+                 #:mallet/rules/forms/broad-handler-swallow
                  #:mallet/rules/forms/error-usage
                  #:mallet/rules/forms/docstring
                  #:mallet/rules/forms/coalton-to-boolean
@@ -72,6 +73,7 @@
     :runtime-intern
     :runtime-unintern
     :no-ignore-errors
+    :broad-handler-swallow
     :error-without-custom-condition
     :missing-docstring
     :missing-package-docstring
@@ -178,6 +180,8 @@ Severity and category defaults are defined in each rule class's :default-initarg
        (apply #'make-instance 'runtime-unintern-rule options))
       (:no-ignore-errors
        (apply #'make-instance 'no-ignore-errors-rule options))
+      (:broad-handler-swallow
+       (apply #'make-instance 'broad-handler-swallow-rule options))
       (:error-without-custom-condition
        (apply #'make-instance 'error-without-custom-condition-rule options))
       (:missing-docstring
