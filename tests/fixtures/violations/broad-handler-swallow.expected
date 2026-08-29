@@ -1,0 +1,8 @@
+# Expected violations for broad-handler-swallow.lisp
+# Format: line:column rule-name severity
+
+6:4 broad-handler-swallow warning
+11:4 broad-handler-swallow warning
+18:4 broad-handler-swallow warning
+22:2 broad-handler-swallow warning
+22:2 no-ignore-errors warning

@@ -670,6 +670,7 @@ Style preferences are disabled to keep output clean."
             :missing-else
             :no-eval
             :no-ignore-errors
+            :broad-handler-swallow
             :needless-let*
             :stale-suppression))
         (disabled-rules
@@ -747,6 +748,7 @@ Useful for exploration and discovering what rules exist."
             :runtime-intern
             :runtime-unintern
             :asdf-operate-in-perform
+            :broad-handler-swallow
             ;; Practice
             :coalton-missing-declare
             :no-allow-other-keys

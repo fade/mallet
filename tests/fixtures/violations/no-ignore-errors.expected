@@ -2,5 +2,9 @@
 # Format: line:column rule-name severity
 
 5:2 no-ignore-errors warning
+5:2 broad-handler-swallow warning
 9:2 no-ignore-errors warning
+9:2 broad-handler-swallow warning
 13:2 no-ignore-errors warning
+13:2 broad-handler-swallow warning
+21:4 broad-handler-swallow warning
