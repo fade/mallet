@@ -1,6 +1,7 @@
-.PHONY: all help test test-unit test-cli bundle build clean docker-build docker-publish
+.PHONY: all help test test-unit test-cli bundle build install clean docker-build docker-publish
 
 VERSION ?= latest
+BINDIR ?= $(HOME)/.local/bin
 IMAGE_NAME ?= fukamachi/mallet
 LOCAL_IMAGE_NAME ?= mallet
 
@@ -13,6 +14,7 @@ help:
 	@echo "  make               - Build the mallet executable (default)"
 	@echo "  make build         - Build the mallet executable"
 	@echo "  make bundle        - Bundle dependencies for standalone distribution"
+	@echo "  make install       - Build and publish mallet to $$BINDIR (default ~/.local/bin)"
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test          - Run all tests (unit + CLI integration)"
@@ -60,6 +62,18 @@ build:
 	@rm -f mallet
 	@sbcl --noinform --non-interactive \
 		--load init.lisp --eval "(asdf:make :mallet/executable)"
+
+# Publish onto PATH atomically. Pre-commit hooks invoke this binary
+# continuously, and copying over a running binary's inode can hand a process a
+# half-written image. Writing beside the target and renaming means a reader sees
+# either the old image or the new one, never a partial file.
+install: build
+	@mkdir -p "$(BINDIR)"
+	@tmp="$(BINDIR)/.mallet.tmp.$$$$"; \
+	 trap 'rm -f "$$tmp"' EXIT; \
+	 cp mallet "$$tmp" && chmod 755 "$$tmp" && mv -f "$$tmp" "$(BINDIR)/mallet"
+	@echo "installed $(BINDIR)/mallet"
+	@"$(BINDIR)/mallet" --version
 
 docker-build:
 	docker build -t $(LOCAL_IMAGE_NAME):$(VERSION) .
