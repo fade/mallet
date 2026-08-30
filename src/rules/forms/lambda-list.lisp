@@ -149,7 +149,8 @@ and is explicitly flagged in the CLHS as problematic."))
                    (dolist (subexpr current-expr)
                      (when (consp subexpr)
                        (let ((nested-violations (base:check-form-recursive rule subexpr file
-                                                                           fallback-line fallback-column)))
+                                                                           fallback-line fallback-column
+                                                                           nil position-map)))
                          (setf violations (nconc violations nested-violations)))))))))
       (check-expr expr line column))
     violations))
@@ -294,7 +295,8 @@ which can hide bugs. Prefer explicit key validation or documented interfaces."))
                    (dolist (subexpr current-expr)
                      (when (consp subexpr)
                        (let ((nested-violations (base:check-form-recursive rule subexpr file
-                                                                           fallback-line fallback-column)))
+                                                                           fallback-line fallback-column
+                                                                           nil position-map)))
                          (setf violations (nconc violations nested-violations))))))))))
       (check-expr expr line column))
     violations))

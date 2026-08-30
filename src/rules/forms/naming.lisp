@@ -77,7 +77,8 @@ follow the *name* convention for dynamic/special variables."))
                    (dolist (subexpr current-expr)
                      (when (consp subexpr)
                        (a:nconcf violations (base:check-form-recursive rule subexpr file
-                                                                       fallback-line fallback-column))))))))
+                                                                       fallback-line fallback-column
+                                                                       nil position-map))))))))
       (check-expr expr line column))
     violations))
 
@@ -145,7 +146,8 @@ Flags defconstant forms whose name does not follow the +name+ convention."))
                    (dolist (subexpr current-expr)
                      (when (consp subexpr)
                        (a:nconcf violations (base:check-form-recursive rule subexpr file
-                                                                       fallback-line fallback-column))))))))
+                                                                       fallback-line fallback-column
+                                                                       nil position-map))))))))
       (check-expr expr line column))
     violations))
 
