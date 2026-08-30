@@ -1648,6 +1648,95 @@
                   (violation:violation-message (first violations)))
           "Should report 'never-used' as unused"))))
 
+(defun check-local-functions (code)
+  "Return the unused-local-functions violations CODE produces."
+  (let ((forms (parser:parse-forms code #p"test.lisp"))
+        (rule (make-instance 'rules:unused-local-functions-rule)))
+    (mapcan (lambda (form) (rules:check-form rule form #p"test.lisp"))
+            forms)))
+
+;;; A binding name is not an operator.
+;;;
+;;; Every row holds the value form constant, (if (string= c "") '() (list c)),
+;;; and varies only the binding name, so the name is the single free variable.
+;;; MACROLET is silent on both sides of this change: it is not among the heads
+;;; this rule dispatches on. ORDINARY is the negative control. The set closes
+;;; with two known positives, so a silent run cannot pass for a clean one.
+
+(deftest local-functions-binding-name-is-not-an-operator
+  (testing "LET* binding named LABELS"
+    (ok (null (check-local-functions
+               "(defun f (n)
+                  (let* ((c (string-downcase n))
+                         (labels (if (string= c \"\") '() (list c))))
+                    labels))"))))
+
+  (testing "LET* binding named FLET"
+    (ok (null (check-local-functions
+               "(defun f (n)
+                  (let* ((c (string-downcase n))
+                         (flet (if (string= c \"\") '() (list c))))
+                    flet))"))))
+
+  (testing "LET* binding named MACROLET"
+    (ok (null (check-local-functions
+               "(defun f (n)
+                  (let* ((c (string-downcase n))
+                         (macrolet (if (string= c \"\") '() (list c))))
+                    macrolet))"))))
+
+  (testing "LET* binding named ORDINARY, the negative control"
+    (ok (null (check-local-functions
+               "(defun f (n)
+                  (let* ((c (string-downcase n))
+                         (ordinary (if (string= c \"\") '() (list c))))
+                    ordinary))"))))
+
+  (testing "LET binding named LABELS"
+    (ok (null (check-local-functions
+               "(defun f (n)
+                  (let ((c (string-downcase n))
+                        (labels (if (string= n \"\") '() (list n))))
+                    (list c labels)))"))))
+
+  (testing "DO binding named LABELS"
+    (ok (null (check-local-functions
+               "(defun f (n)
+                  (do ((labels (if (string= n \"\") '() (list n)) (rest labels)))
+                      ((null labels) nil)))"))))
+
+  (testing "SYMBOL-MACROLET binding named LABELS"
+    (ok (null (check-local-functions
+               "(defun f (n)
+                  (symbol-macrolet ((labels (if (string= n \"\") '() (list n))))
+                    labels))"))))
+
+  (testing "DOLIST binding named LABELS"
+    (ok (null (check-local-functions
+               "(defun f (n)
+                  (dolist (labels (if (string= n \"\") '() (list n)))
+                    labels))"))))
+
+  (testing "WITH-OPEN-FILE binding named LABELS"
+    (ok (null (check-local-functions
+               "(defun f (n)
+                  (with-open-file (labels (merge-pathnames (string-downcase n)))
+                    (read-line labels)))"))))
+
+  (testing "Known positive: an unused local function still reports"
+    (let ((violations (check-local-functions
+                       "(defun f (n) (flet ((helper (x) (1+ x))) n))")))
+      (ok (= (length violations) 1))
+      (ok (search "Local function 'helper' is unused"
+                  (violation:violation-message (first violations))))))
+
+  (testing "Known positive: an unused local function in a binding value reports"
+    (let ((violations (check-local-functions
+                       "(defun f (n) (let ((x (flet ((never-called () 1)) n))) x))")))
+      (ok (= (length violations) 1))
+      (ok (search "Local function 'never-called' is unused"
+                  (violation:violation-message (first violations)))))))
+
 (deftest unknown-macro-car-position
   (testing "Variable in CAR position inside unknown macro should NOT report unused"
     (let* ((code "(let ((x 1))

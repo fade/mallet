@@ -6,6 +6,8 @@
    (#:parser #:mallet/parser)
    (#:utils #:mallet/utils)
    (#:violation #:mallet/violation))
+  (:import-from #:mallet/rules/base
+                #:form-head-name-p)
   (:export #:unused-local-functions-rule))
 (in-package #:mallet/rules/forms/local-functions)
 
@@ -39,13 +41,13 @@ Bound in base:check-form and accessible to all helper functions.")
   (let ((ignored '()))
     (dolist (form body)
       (when (and (consp form)
-                 (base:symbol-matches-p (first form) "DECLARE"))
+                 (form-head-name-p (first form) "DECLARE"))
         ;; Only iterate if it's a proper list (not a dotted pair)
         (when (and (listp (rest form)) (a:proper-list-p (rest form)))
           (dolist (decl-spec (rest form))
             (when (and (consp decl-spec)
-                       (or (base:symbol-matches-p (first decl-spec) "IGNORE")
-                           (base:symbol-matches-p (first decl-spec) "IGNORABLE")))
+                       (or (form-head-name-p (first decl-spec) "IGNORE")
+                           (form-head-name-p (first decl-spec) "IGNORABLE")))
               ;; Only iterate if it's a proper list (not a dotted pair)
               (when (and (listp (rest decl-spec)) (a:proper-list-p (rest decl-spec)))
                 (dolist (var (rest decl-spec))
@@ -83,13 +85,11 @@ Modifies *SHADOWS* special variable by pushing new shadow-info structs."
           (rest-args (rest expr)))
       (cond
         ;; QUOTE - skip entirely
-        ((or (eq head 'cl:quote)
-             (eq head 'quote)
-             (base:symbol-matches-p head "QUOTE"))
+        ((form-head-name-p head "QUOTE")
          nil)
 
         ;; FLET - check for shadowing in function definitions
-        ((base:symbol-matches-p head "FLET")
+        ((form-head-name-p head "FLET")
          (when (and (consp rest-args)
                     (a:proper-list-p (first rest-args)))
            (let ((func-defs (first rest-args)))
@@ -106,7 +106,7 @@ Modifies *SHADOWS* special variable by pushing new shadow-info structs."
                  (find-shadows-in-expr arg target-name))))))
 
         ;; LABELS - check for shadowing in function definitions
-        ((base:symbol-matches-p head "LABELS")
+        ((form-head-name-p head "LABELS")
          (when (and (consp rest-args)
                     (a:proper-list-p (first rest-args)))
            (let ((func-defs (first rest-args)))
@@ -170,18 +170,14 @@ Unlike variable references, this ONLY matches when the name appears in function 
                         ;; Not shadowed - search recursively
                         (cond
                           ;; QUOTE - if in function position, check if quoted symbol matches
-                          ((or (eq (first expr) 'cl:quote)
-                               (eq (first expr) 'quote)
-                               (base:symbol-matches-p (first expr) "QUOTE"))
+                          ((form-head-name-p (first expr) "QUOTE")
                            ;; In function position (e.g., (funcall 'foo ...)), check quoted value
                            (when (and in-function-position
                                       (rest expr)
                                       (stringp (second expr)))
                              (string-equal (base:symbol-name-from-string (second expr)) target-name)))
                           ;; FUNCTION (#') - the argument is in function namespace, so it's a reference
-                          ((or (eq (first expr) 'cl:function)
-                               (eq (first expr) 'function)
-                               (base:symbol-matches-p (first expr) "FUNCTION"))
+                          ((form-head-name-p (first expr) "FUNCTION")
                            (when (rest expr)
                              (let ((func-arg (second expr)))
                                (or
@@ -190,17 +186,15 @@ Unlike variable references, this ONLY matches when the name appears in function 
                                      (string-equal (base:symbol-name-from-string func-arg) target-name))
                                 ;; If it's a lambda, recursively search its body
                                 (when (and (consp func-arg)
-                                           (or (base:symbol-matches-p (first func-arg) "LAMBDA")
-                                               (eq (first func-arg) 'cl:lambda)
-                                               (eq (first func-arg) 'lambda)))
+                                           (form-head-name-p (first func-arg) "LAMBDA"))
                                   ;; Lambda format: (lambda (args...) body...)
                                   ;; Skip lambda keyword and lambda-list, search body
                                   (when (cddr func-arg)
                                     (some (lambda (body-form) (search-expr body-form nil))
                                           (cddr func-arg))))))))
                           ;; FUNCALL/APPLY - first argument after operator is in function namespace
-                          ((or (base:symbol-matches-p (first expr) "FUNCALL")
-                               (base:symbol-matches-p (first expr) "APPLY"))
+                          ((or (form-head-name-p (first expr) "FUNCALL")
+                               (form-head-name-p (first expr) "APPLY"))
                            (when (rest expr)
                              (or (search-expr (second expr) t)  ; First arg can be function
                                  (some (lambda (arg) (search-expr arg nil))
@@ -313,16 +307,9 @@ Unlike variable references, this ONLY matches when the name appears in function 
 
 (defun should-skip-form-p (head)
   "Check if a form should be skipped entirely (no recursion into it)."
-  (or (eq head 'cl:quote)
-      (eq head 'quote)
-      (base:symbol-matches-p head "QUOTE")
-      (base:symbol-matches-p head "DEFSTRUCT")
-      (base:symbol-matches-p head "DEFCLASS")
-      (base:symbol-matches-p head "DEFPACKAGE")
-      (base:symbol-matches-p head "DEFTYPE")
-      (base:symbol-matches-p head "DEFSETF")
-      (base:symbol-matches-p head "DEFINE-MODIFY-MACRO")
-      (base:symbol-matches-p head "DEFINE-SETF-EXPANDER")))
+  (some (lambda (name) (form-head-name-p head name))
+        '("QUOTE" "DEFSTRUCT" "DEFCLASS" "DEFPACKAGE" "DEFTYPE" "DEFSETF"
+          "DEFINE-MODIFY-MACRO" "DEFINE-SETF-EXPANDER")))
 
 (defun quasiquote-form-p (head)
   "Check if HEAD represents a quasiquote form."
@@ -331,6 +318,54 @@ Unlike variable references, this ONLY matches when the name appears in function 
            (string-equal (symbol-name head) "QUASIQUOTE")
            (string-equal (package-name (symbol-package head)) "ECLECTOR.READER"))))
 
+(defparameter *binding-list-operators*
+  '("LET" "LET*" "SYMBOL-MACROLET" "PROG" "PROG*" "DO" "DO*")
+  "Operators whose first argument is a list of bindings, each of the form (name . forms).")
+
+(defparameter *single-binding-operators*
+  '("DOLIST" "DOTIMES" "DO-SYMBOLS" "DO-EXTERNAL-SYMBOLS" "DO-ALL-SYMBOLS"
+    "WITH-OPEN-FILE" "WITH-OPEN-STREAM" "WITH-INPUT-FROM-STRING" "WITH-OUTPUT-TO-STRING")
+  "Operators whose first argument is a single binding of the form (name . forms).")
+
+(defun binding-list-operator-p (head)
+  "Return T if HEAD names an operator whose first argument is a list of bindings."
+  (some (lambda (name) (form-head-name-p head name)) *binding-list-operators*))
+
+(defun single-binding-operator-p (head)
+  "Return T if HEAD names an operator whose first argument is a single binding."
+  (some (lambda (name) (form-head-name-p head name)) *single-binding-operators*))
+
+(defun check-subforms (forms line column position-map rule)
+  "Check every cons in FORMS as an ordinary code form."
+  (when (a:proper-list-p forms)
+    (dolist (subexpr forms)
+      (when (consp subexpr)
+        ;; Look up the position of this subexpression before recursing
+        (multiple-value-bind (subexpr-line subexpr-column)
+            (parser:find-position subexpr position-map line column)
+          ;; Recurse using check-form-recursive to get suppression handling
+          (let ((nested-violations
+                  (base:check-form-recursive rule subexpr *file*
+                                             (or subexpr-line line)
+                                             (or subexpr-column column)
+                                             nil
+                                             position-map)))
+            ;; Accumulate violations from nested call
+            (setf *violations* (append *violations* nested-violations))))))))
+
+(defun check-binding-entry (entry line column position-map rule)
+  "Check the value forms of one binding ENTRY, of the form (name . forms).
+The name sits at the head of the entry but names a variable, never an operator,
+so the entry itself is not resolved as a form."
+  (when (consp entry)
+    (check-subforms (rest entry) line column position-map rule)))
+
+(defun check-binding-list (bindings line column position-map rule)
+  "Check the value forms of every entry in BINDINGS."
+  (when (a:proper-list-p bindings)
+    (dolist (entry bindings)
+      (check-binding-entry entry line column position-map rule))))
+
 (defun check-expr (expr line column position-map rule)
   "Recursively check expression for unused local functions."
   (when (consp expr)
@@ -338,9 +373,9 @@ Unlike variable references, this ONLY matches when the name appears in function 
           (rest-args (rest expr)))
       ;; 1. Dispatch to specific checkers for FLET/LABELS
       (cond
-        ((base:symbol-matches-p head "FLET")
+        ((form-head-name-p head "FLET")
          (check-flet-bindings expr line column position-map rule))
-        ((base:symbol-matches-p head "LABELS")
+        ((form-head-name-p head "LABELS")
          (check-labels-bindings expr line column position-map rule)))
 
       ;; 2. Handle special forms for recursion
@@ -379,23 +414,21 @@ Unlike variable references, this ONLY matches when the name appears in function 
              (dolist (arg rest-args)
                (check-quasi arg)))))
 
+        ;; Binding forms: a binding entry is not an operator form, so descend
+        ;; into the value forms rather than resolving the binding name as a head.
+        ((and (binding-list-operator-p head)
+              (consp rest-args))
+         (check-binding-list (first rest-args) line column position-map rule)
+         (check-subforms (rest rest-args) line column position-map rule))
+
+        ((and (single-binding-operator-p head)
+              (consp rest-args))
+         (check-binding-entry (first rest-args) line column position-map rule)
+         (check-subforms (rest rest-args) line column position-map rule))
+
         ;; 3. Default: recursively check all nested forms
         (t
-         (when (and (a:proper-list-p rest-args))
-           (dolist (subexpr rest-args)
-             (when (consp subexpr)
-               ;; Look up the position of this subexpression before recursing
-               (multiple-value-bind (subexpr-line subexpr-column)
-                   (parser:find-position subexpr position-map line column)
-                 ;; Recurse using check-form-recursive to get suppression handling
-                 (let ((nested-violations
-                         (base:check-form-recursive rule subexpr *file*
-                                                    (or subexpr-line line)
-                                                    (or subexpr-column column)
-                                                    nil
-                                                    position-map)))
-                   ;; Accumulate violations from nested call
-                   (setf *violations* (append *violations* nested-violations))))))))))))
+         (check-subforms rest-args line column position-map rule))))))
 
 ;;; Rule class
 

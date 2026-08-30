@@ -1,0 +1,7 @@
+# Expected violations for binding-name-heads.lisp
+# Format: line:column rule-name severity
+#
+# Only the genuinely unused local function reports. Every binding named after
+# an operator above it is a variable.
+
+32:10 unused-local-functions warning
