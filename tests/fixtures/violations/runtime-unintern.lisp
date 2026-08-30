@@ -19,3 +19,8 @@
 ;; Good: defmacro is not flagged (compile-time)
 (defmacro with-unintern (sym &body body)
   `(progn (cl:unintern ,sym) ,@body))
+
+;; Good: keyword-headed rows are data, so neither intern rule may fire on them
+(defun unintern-rows (sym)
+  `((:funcall #'cl:unintern ,sym)
+    (:funcall #'cl:unintern ,sym)))

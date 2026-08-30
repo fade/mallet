@@ -1,7 +1,7 @@
 ;;; Control set: a keyword in head position is data, never an operator.
-;;; Each row holds the row shape constant and varies only what sits at the head.
-;;; The unquoted call at the bottom is the only real code here, so it is the
-;;; only violation this file may produce.
+;;; The rows do not share one shape: quoting and the unquote vary alongside the
+;;; head. What they share is that every head sits in a table entry, not operator
+;;; position. The unquoted call at the bottom is the only violation possible here.
 
 (defparameter *quoted-rows*
   '((:ignore-errors alpha beta)

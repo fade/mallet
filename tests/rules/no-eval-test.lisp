@@ -87,3 +87,30 @@
     (let ((violations (check-eval "(apply 'eval '((print 1)))")))
       (ok (= (length violations) 1))
       (ok (eq (violation:violation-rule (first violations)) :no-eval)))))
+
+;;; Keyword in head position is data, never an operator
+
+(deftest eval-keyword-head-is-data-not-an-operator
+  (testing "Keyword-headed rows in a backquoted table are silent"
+    (ok (null (check-eval "(defun eval-rows (x)
+  `((:eval alpha ,x)
+    (:eval gamma ,x)))"))))
+
+  (testing "Keyword-headed funcall rows are silent"
+    (ok (null (check-eval "(defun funcall-rows (x)
+  `((:funcall #'eval ,x)
+    (:funcall #'eval ,x)))"))))
+
+  (testing "Keyword-headed apply rows are silent"
+    (ok (null (check-eval "(defun apply-rows (x)
+  `((:apply #'eval ,x)
+    (:apply #'eval ,x)))"))))
+
+  ;; Known positive, so a run that reports nothing at all cannot pass as clean.
+  (testing "A genuine eval beside the data rows is still reported"
+    (let ((violations (check-eval "(defun mixed (x)
+  `((:eval alpha ,x)
+    (:eval gamma ,x))
+  (eval x))")))
+      (ok (= 1 (length violations)))
+      (ok (eq :no-eval (violation:violation-rule (first violations)))))))

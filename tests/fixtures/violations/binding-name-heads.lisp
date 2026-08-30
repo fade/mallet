@@ -1,7 +1,7 @@
 ;;; Control set: a binding entry is not an operator form.
-;;; Each row holds the value form constant and varies only the binding name,
-;;; so the name is the single free variable. The unused local function at the
-;;; bottom is the only violation this file may produce.
+;;; The first four rows fix the binding form at LET* and vary only the name; the
+;;; DOLIST row varies the binding form and its value form too. The unused local
+;;; function at the bottom is the only violation this file may produce.
 
 (defun bound-labels (n)
   (let* ((c (string-downcase n))

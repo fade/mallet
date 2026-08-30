@@ -78,13 +78,13 @@ Suppressions are handled automatically by the :around method."
                    (let ((head (first current-expr))
                          (rest-args (rest current-expr)))
                      ;; Direct (eval ...) call
-                     (when (and (base:symbol-matches-p head "EVAL")
+                     (when (and (form-head-name-p head "EVAL")
                                 (base:should-create-violation-p rule))
                        (push (make-eval-violation actual-line actual-column "cl:eval")
                              violations))
 
                      ;; (funcall #'eval ...) or (funcall 'eval ...)
-                     (when (and (base:symbol-matches-p head "FUNCALL")
+                     (when (and (form-head-name-p head "FUNCALL")
                                 (consp rest-args)
                                 (eval-symbol-p (first rest-args))
                                 (base:should-create-violation-p rule))
@@ -92,7 +92,7 @@ Suppressions are handled automatically by the :around method."
                              violations))
 
                      ;; (apply #'eval ...) or (apply 'eval ...)
-                     (when (and (base:symbol-matches-p head "APPLY")
+                     (when (and (form-head-name-p head "APPLY")
                                 (consp rest-args)
                                 (eval-symbol-p (first rest-args))
                                 (base:should-create-violation-p rule))

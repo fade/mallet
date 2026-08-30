@@ -136,21 +136,25 @@ Keyword symbols are self-evaluating data values, not operators or form heads."
 (defun form-head-name-p (head name)
   "Check if HEAD, in the operator position of a form, names NAME (case-insensitive).
 
-The `string' branch handles symbols produced by the custom Eclector parse-result client
-(mallet/parser), which represents all user-written symbols as strings.  The `symbol'
-branch handles the handful of symbols that Eclector interns directly because they arise
-from reader macros: FUNCTION (from #') and QUOTE (from ').
+HEAD arrives in one of two representations: the parse-result client (mallet/parser) hands
+back user-written symbols as strings, while a symbol that reaches the reader through a
+macro character, such as QUOTE from ', is already interned. One branch below takes each.
 
-A keyword never names an operator. Its leading colon satisfies the colon test in
-symbol-matches-p, so without the guard here a data row such as (:IGNORE-ERRORS ...)
-inside a backquote reads as a call to IGNORE-ERRORS. Use this rather than
-symbol-matches-p wherever a rule dispatches on the head of a form; symbol-matches-p
-still answers the different question of whether a name matches at all, which is what
-option lists such as (:DOCUMENTATION \"...\") need."
+The invariant guaranteed here is that a keyword in head position never names an operator,
+in either representation. A keyword is self-evaluating data, so a row such as
+(:IGNORE-ERRORS ...) inside a backquote is a table entry rather than a call to
+IGNORE-ERRORS. Both branches reject keywords on their own account, so the guarantee holds
+whatever any other predicate does about names.
+
+A rule still reaching for symbol-matches-p on a form head has not been converted.
+symbol-matches-p answers the different question of whether a name matches at all, in any
+position, which is what option lists such as (:DOCUMENTATION \"...\") need. That is why
+the guard belongs here and not in the name comparison."
   (typecase head
     (string (and (not (keyword-symbol-string-p head))
                  (symbol-matches-p head name)))
-    (symbol (string-equal (symbol-name head) name))
+    (symbol (and (not (keywordp head))
+                 (string-equal (symbol-name head) name)))
     (otherwise nil)))
 
 (defun coalton-form-p (form)

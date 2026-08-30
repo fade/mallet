@@ -1657,11 +1657,16 @@
 
 ;;; A binding name is not an operator.
 ;;;
-;;; Every row holds the value form constant, (if (string= c "") '() (list c)),
-;;; and varies only the binding name, so the name is the single free variable.
+;;; Two blocks, each fixing one thing. The first fixes the binding form at LET*
+;;; and varies only the name (LABELS, FLET, MACROLET, and ORDINARY as the
+;;; negative control); those four rows share one value form, so the name is the
+;;; only thing that differs. The second fixes the name at LABELS and varies the
+;;; binding form (LET, DO, SYMBOL-MACROLET, DOLIST, WITH-OPEN-FILE); the first
+;;; four of those share a value form, and WITH-OPEN-FILE cannot, since it binds
+;;; a stream, so that row differs in the value as well as the form.
 ;;; MACROLET is silent on both sides of this change: it is not among the heads
-;;; this rule dispatches on. ORDINARY is the negative control. The set closes
-;;; with two known positives, so a silent run cannot pass for a clean one.
+;;; this rule dispatches on. The set closes with two known positives, so a
+;;; silent run cannot pass for a clean one.
 
 (deftest local-functions-binding-name-is-not-an-operator
   (testing "LET* binding named LABELS"

@@ -41,10 +41,12 @@
                "(defmacro safe-call (form) `(ignore-errors ,form))")))))
 
 ;;; A keyword in head position is a data value, never an operator.
-;;; Every row below holds the row shape constant and varies only what sits at
-;;; the head, so the head is the single free variable. The last row is a known
-;;; positive: genuine code reached through an unquote, which must still report,
-;;; so a silent run cannot pass for a clean one.
+;;; The rows do not share one shape: quoting, the unquote, the construct, and
+;;; whether the head is a keyword at all vary between them, and the fourth is a
+;;; defclass option list rather than a table row. What they share is that no
+;;; head among them sits in the operator position of evaluated code. The last
+;;; row is the known positive: genuine code reached through an unquote, which
+;;; must still report, so a silent run cannot pass for a clean one.
 
 (deftest ignore-errors-keyword-head-is-data
   (testing "Quoted data rows with a keyword head are silent"

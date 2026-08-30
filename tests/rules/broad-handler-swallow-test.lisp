@@ -107,7 +107,11 @@
                "(defmacro safe-call (form) `(ignore-errors ,form))")))))
 
 ;;; A keyword in head position is a data value, never an operator.
-;;; Each row holds the row shape constant and varies only the head.
+;;; The set opens and closes with a known positive, so a silent run cannot pass
+;;; for a clean one; neither of those is a table row. Between them sit three
+;;; data rows, which vary in quoting, in the unquote, and in whether the head is
+;;; a keyword at all. What they share is that no head among them sits in the
+;;; operator position of evaluated code.
 
 (deftest broad-handler-keyword-head-is-data
   (testing "Known positive: blanket clause returning nil"
