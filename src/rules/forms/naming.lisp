@@ -43,9 +43,9 @@ follow the *name* convention for dynamic/special variables."))
                  ;; Check if this form is a defvar/defparameter
                  (when (stringp (first current-expr))
                    (let ((operator (first current-expr)))
-                     (when (or (base:symbol-matches-p operator "DEFVAR")
-                               (base:symbol-matches-p operator "DEFPARAMETER")
-                               (base:symbol-matches-p operator "DEFGLOBAL"))
+                     (when (or (base:form-head-name-p operator "DEFVAR")
+                               (base:form-head-name-p operator "DEFPARAMETER")
+                               (base:form-head-name-p operator "DEFGLOBAL"))
                        ;; Found a defvar/defparameter - check naming
                        (when (>= (length current-expr) 2)
                          (let* ((var-name-expr (second current-expr))
@@ -77,7 +77,8 @@ follow the *name* convention for dynamic/special variables."))
                    (dolist (subexpr current-expr)
                      (when (consp subexpr)
                        (a:nconcf violations (base:check-form-recursive rule subexpr file
-                                                                       fallback-line fallback-column))))))))
+                                                                       fallback-line fallback-column
+                                                                       nil position-map))))))))
       (check-expr expr line column))
     violations))
 
@@ -114,8 +115,8 @@ Flags defconstant forms whose name does not follow the +name+ convention."))
                  ;; Check if this form is a defconstant/define-constant
                  (when (stringp (first current-expr))
                    (let ((operator (first current-expr)))
-                     (when (or (base:symbol-matches-p operator "DEFCONSTANT")
-                               (base:symbol-matches-p operator "DEFINE-CONSTANT"))
+                     (when (or (base:form-head-name-p operator "DEFCONSTANT")
+                               (base:form-head-name-p operator "DEFINE-CONSTANT"))
                        ;; Found a defconstant - check naming
                        (when (>= (length current-expr) 2)
                          (let* ((const-name-expr (second current-expr))
@@ -145,7 +146,8 @@ Flags defconstant forms whose name does not follow the +name+ convention."))
                    (dolist (subexpr current-expr)
                      (when (consp subexpr)
                        (a:nconcf violations (base:check-form-recursive rule subexpr file
-                                                                       fallback-line fallback-column))))))))
+                                                                       fallback-line fallback-column
+                                                                       nil position-map))))))))
       (check-expr expr line column))
     violations))
 
