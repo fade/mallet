@@ -274,3 +274,42 @@ using an empty-context fake file.  Returns violations."
   (testing "Symbol head from unrelated package is not flagged"
     (let ((violations (check-intern-with-symbol-head 'runtime-intern:resolve-runtime-intern '(x nil))))
       (ok (null violations)))))
+
+;;; Keyword in head position is data, never an operator
+
+(deftest runtime-intern-keyword-head-is-data-not-an-operator
+  ;; This is the row shape that made the runtime-unintern fixture report a false
+  ;; positive at a keyword-headed table entry.
+  (testing "Keyword-headed funcall rows in a backquoted table are silent"
+    (ok (null (check-intern "(defun intern-rows (x)
+  `((:funcall #'cl:unintern ,x)
+    (:funcall #'cl:unintern ,x)))"))))
+
+  (testing "Keyword-headed apply rows in a backquoted table are silent"
+    (ok (null (check-intern "(defun intern-rows (x)
+  `((:apply #'cl:intern ,x)
+    (:apply #'cl:intern ,x)))"))))
+
+  ;; Known positives. The DEFMACRO and EVAL-WHEN exits only suppress the subtree
+  ;; being walked, and a nested row is reached anyway through the enclosing
+  ;; form's own recursion, so a top-level row is what discriminates here.
+  (testing "A top-level :defmacro row does not take the compile-time exit"
+    (let ((violations (check-intern "(:defmacro alpha (cl:intern sym))")))
+      (ok (= 1 (length violations)))
+      (ok (eq :runtime-intern (violation:violation-rule (first violations))))))
+
+  (testing "A top-level :eval-when row does not take the compile-time exit"
+    (let ((violations (check-intern "(:eval-when alpha (cl:intern sym))")))
+      (ok (= 1 (length violations)))
+      (ok (eq :runtime-intern (violation:violation-rule (first violations))))))
+
+  (testing "A real defmacro body is still skipped"
+    (ok (null (check-intern "(defmacro f (x) (cl:intern x))"))))
+
+  (testing "A real eval-when without :execute is still skipped"
+    (ok (null (check-intern "(eval-when (:compile-toplevel) (cl:intern x))"))))
+
+  (testing "A genuine runtime intern still reports"
+    (let ((violations (check-intern "(defun f (x) (cl:intern x))")))
+      (ok (= 1 (length violations)))
+      (ok (eq :runtime-intern (violation:violation-rule (first violations)))))))

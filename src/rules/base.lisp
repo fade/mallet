@@ -21,6 +21,7 @@
            #:symbol-name-from-string
            #:symbol-matches-p
            #:keyword-symbol-string-p
+           #:form-head-name-p
            #:coalton-form-p
            #:check-text
            #:check-tokens
@@ -131,6 +132,30 @@ Keyword symbols are self-evaluating data values, not operators or form heads."
   (and (stringp str)
        (> (length str) 0)
        (char= (char str 0) #\:)))
+
+(defun form-head-name-p (head name)
+  "Check if HEAD, in the operator position of a form, names NAME (case-insensitive).
+
+HEAD arrives in one of two representations: the parse-result client (mallet/parser) hands
+back user-written symbols as strings, while a symbol that reaches the reader through a
+macro character, such as QUOTE from ', is already interned. One branch below takes each.
+
+The invariant guaranteed here is that a keyword in head position never names an operator,
+in either representation. A keyword is self-evaluating data, so a row such as
+(:IGNORE-ERRORS ...) inside a backquote is a table entry rather than a call to
+IGNORE-ERRORS. Both branches reject keywords on their own account, so the guarantee holds
+whatever any other predicate does about names.
+
+A rule still reaching for symbol-matches-p on a form head has not been converted.
+symbol-matches-p answers the different question of whether a name matches at all, in any
+position, which is what option lists such as (:DOCUMENTATION \"...\") need. That is why
+the guard belongs here and not in the name comparison."
+  (typecase head
+    (string (and (not (keyword-symbol-string-p head))
+                 (symbol-matches-p head name)))
+    (symbol (and (not (keywordp head))
+                 (string-equal (symbol-name head) name)))
+    (otherwise nil)))
 
 (defun coalton-form-p (form)
   "Check if FORM is a Coalton toplevel form.

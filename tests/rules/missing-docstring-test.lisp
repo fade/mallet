@@ -287,3 +287,37 @@
                (ok (null violations))))
         (pkg-exports:clear-package-export-cache)
         (doc-util:cleanup-temp-dir dir)))))
+
+;;; The keyword guard must not reach the (:documentation "...") option.
+;;;
+;;; :documentation is a keyword, but it sits in an option list rather than in
+;;; operator position. Putting the keyword guard into the name comparison itself
+;;; would reject it and make every documented class, condition and generic
+;;; report as undocumented; that is why the guard lives in head resolution
+;;; instead. These cells fence that regression. The undocumented case is the
+;;; known positive, so a silent run cannot pass for a clean one.
+
+(deftest keyword-documentation-option-is-still-a-docstring
+  (testing "defclass with (:documentation ...) is not reported"
+    (ok (null (check-missing-docstring
+               "(defclass point ()
+  ((x :initarg :x))
+  (:documentation \"A point.\"))"))))
+
+  (testing "defclass without (:documentation ...) is reported"
+    (let ((violations (check-missing-docstring
+                       "(defclass point ()
+  ((x :initarg :x)))")))
+      (ok (= 1 (length violations)))
+      (ok (eq :missing-docstring (violation:violation-rule (first violations))))))
+
+  (testing "define-condition with (:documentation ...) is not reported"
+    (ok (null (check-missing-docstring
+               "(define-condition my-error (error)
+  ((code :initarg :code))
+  (:documentation \"An error.\"))"))))
+
+  (testing "defgeneric with (:documentation ...) is not reported"
+    (ok (null (check-missing-docstring
+               "(defgeneric frob (x)
+  (:documentation \"Frob X.\"))")))))

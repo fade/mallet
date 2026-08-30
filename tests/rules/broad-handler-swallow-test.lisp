@@ -106,6 +106,33 @@
     (ok (null (check-broad-handler
                "(defmacro safe-call (form) `(ignore-errors ,form))")))))
 
+;;; A keyword in head position is a data value, never an operator.
+;;; The set opens and closes with a known positive, so a silent run cannot pass
+;;; for a clean one; neither of those is a table row. Between them sit three
+;;; data rows, which vary in quoting, in the unquote, and in whether the head is
+;;; a keyword at all. What they share is that no head among them sits in the
+;;; operator position of evaluated code.
+
+(deftest broad-handler-keyword-head-is-data
+  (testing "Known positive: blanket clause returning nil"
+    (ok (= 1 (length (check-broad-handler *known-positive*)))))
+
+  (testing "Quoted data rows with a keyword head are silent"
+    (ok (null (check-broad-handler
+               "(defparameter *rows* '((:ignore-errors a b) (:ignore-errors c d)))"))))
+
+  (testing "Backquoted data rows with a keyword head are silent"
+    (ok (null (check-broad-handler
+               "(defun rows (x) `((:ignore-errors a ,x) (:ignore-errors c ,x)))"))))
+
+  (testing "Backquoted data rows with a non-keyword head are silent"
+    (ok (null (check-broad-handler
+               "(defun rows (x) `((alpha a ,x) (beta c ,x)))"))))
+
+  (testing "Known positive: code reached through an unquote still reports"
+    (ok (= 1 (length (check-broad-handler
+                      "(defun wrap (x) `(outer ,(ignore-errors (risky x))))"))))))
+
 ;;; Clauses that keep the condition available
 
 (deftest blanket-clause-preserved-condition

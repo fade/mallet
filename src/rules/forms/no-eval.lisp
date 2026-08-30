@@ -5,6 +5,8 @@
    (#:base #:mallet/rules/base)
    (#:parser #:mallet/parser)
    (#:violation #:mallet/violation))
+  (:import-from #:mallet/rules/base
+                #:form-head-name-p)
   (:export #:no-eval-rule))
 (in-package #:mallet/rules/forms/no-eval)
 
@@ -19,18 +21,6 @@
    :category :suspicious
    :type :form)
   (:documentation "Rule to detect runtime use of cl:eval, including via funcall and apply."))
-
-(defun form-head-name-p (head name)
-  "Check if HEAD (a string symbol or interned CL symbol) matches NAME (case-insensitive).
-
-The `string' branch handles symbols produced by the custom Eclector parse-result client
-(mallet/parser), which represents all user-written symbols as strings.  The `symbol'
-branch handles the handful of symbols that Eclector interns directly because they arise
-from reader macros: FUNCTION (from #') and QUOTE (from ')."
-  (typecase head
-    (string (base:symbol-matches-p head name))
-    (symbol (string-equal (symbol-name head) name))
-    (otherwise nil)))
 
 (defun eval-symbol-p (expr)
   "Return true if EXPR refers to the EVAL function (symbol or function object).
@@ -88,13 +78,13 @@ Suppressions are handled automatically by the :around method."
                    (let ((head (first current-expr))
                          (rest-args (rest current-expr)))
                      ;; Direct (eval ...) call
-                     (when (and (base:symbol-matches-p head "EVAL")
+                     (when (and (form-head-name-p head "EVAL")
                                 (base:should-create-violation-p rule))
                        (push (make-eval-violation actual-line actual-column "cl:eval")
                              violations))
 
                      ;; (funcall #'eval ...) or (funcall 'eval ...)
-                     (when (and (base:symbol-matches-p head "FUNCALL")
+                     (when (and (form-head-name-p head "FUNCALL")
                                 (consp rest-args)
                                 (eval-symbol-p (first rest-args))
                                 (base:should-create-violation-p rule))
@@ -102,7 +92,7 @@ Suppressions are handled automatically by the :around method."
                              violations))
 
                      ;; (apply #'eval ...) or (apply 'eval ...)
-                     (when (and (base:symbol-matches-p head "APPLY")
+                     (when (and (form-head-name-p head "APPLY")
                                 (consp rest-args)
                                 (eval-symbol-p (first rest-args))
                                 (base:should-create-violation-p rule))

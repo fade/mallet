@@ -186,13 +186,6 @@ Resolution order:
   (:documentation "Rule to detect runtime use of cl:intern, cl:unintern, uiop:intern*,
 alexandria:symbolicate, alexandria:format-symbol, and alexandria:make-keyword."))
 
-(defun form-head-name-matches-p (head name)
-  "Return T if HEAD (parser string or reader-macro interned symbol) matches NAME."
-  (typecase head
-    (string (string-equal (utils:symbol-name-from-string head) name))
-    (symbol (string-equal (symbol-name head) name))
-    (otherwise nil)))
-
 (defun intern-callee-p (expr context)
   "Return the display name if EXPR is a prohibited intern function reference, NIL otherwise.
 Handles: bare symbol string, already-interned CL symbol, #'func (FUNCTION form),
@@ -213,12 +206,12 @@ Handles: bare symbol string, already-interned CL symbol, #'func (FUNCTION form),
        (resolve-runtime-intern sym-string context)))
     ;; #'func → (FUNCTION "PKG:func") where FUNCTION may be interned CL symbol
     ((and (consp expr)
-          (form-head-name-matches-p (first expr) "FUNCTION")
+          (base:form-head-name-p (first expr) "FUNCTION")
           (stringp (second expr)))
      (resolve-runtime-intern (second expr) context))
     ;; 'func → (QUOTE "PKG:func") where QUOTE may be interned CL symbol
     ((and (consp expr)
-          (form-head-name-matches-p (first expr) "QUOTE")
+          (base:form-head-name-p (first expr) "QUOTE")
           (stringp (second expr)))
      (resolve-runtime-intern (second expr) context))
     (t nil)))
@@ -283,11 +276,11 @@ Handles: bare symbol string, already-interned CL symbol, #'func (FUNCTION form),
                          (rest-args (rest current-expr)))
                      (cond
                        ;; DEFMACRO: skip entirely (macro expansion code, not runtime)
-                       ((form-head-name-matches-p head "DEFMACRO")
+                       ((base:form-head-name-p head "DEFMACRO")
                         nil)
 
                        ;; EVAL-WHEN: only recurse into body if :execute is present
-                       ((form-head-name-matches-p head "EVAL-WHEN")
+                       ((base:form-head-name-p head "EVAL-WHEN")
                         (when (eval-when-has-execute-p current-expr)
                           (a:nconcf violations
                                     (base:collect-violations-from-subexprs
@@ -305,7 +298,7 @@ Handles: bare symbol string, already-interned CL symbol, #'func (FUNCTION form),
                                   violations)))
 
                         ;; (funcall #'intern ...) or (funcall 'intern ...)
-                        (when (and (form-head-name-matches-p head "FUNCALL")
+                        (when (and (base:form-head-name-p head "FUNCALL")
                                    (consp rest-args))
                           (let ((display (intern-callee-p (first rest-args) context)))
                             (when (and display (base:should-create-violation-p rule))
@@ -315,7 +308,7 @@ Handles: bare symbol string, already-interned CL symbol, #'func (FUNCTION form),
                                     violations))))
 
                         ;; (apply #'intern ...) or (apply 'intern ...)
-                        (when (and (form-head-name-matches-p head "APPLY")
+                        (when (and (base:form-head-name-p head "APPLY")
                                    (consp rest-args))
                           (let ((display (intern-callee-p (first rest-args) context)))
                             (when (and display (base:should-create-violation-p rule))

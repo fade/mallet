@@ -5,6 +5,8 @@
    (#:base #:mallet/rules/base)
    (#:parser #:mallet/parser)
    (#:violation #:mallet/violation))
+  (:import-from #:mallet/rules/base
+                #:form-head-name-p)
   (:export #:broad-handler-swallow-rule))
 (in-package #:mallet/rules/forms/broad-handler-swallow)
 
@@ -40,13 +42,6 @@ or CERROR. Anything else leaves the caller with no way to learn what went wrong.
 
 (defconstant +max-reference-depth+ 128
   "Bound on how deep the search for a bound-variable reference descends.")
-
-(defun form-head-name-p (head name)
-  "Check if HEAD (a string symbol or interned CL symbol) matches NAME (case-insensitive)."
-  (typecase head
-    (string (base:symbol-matches-p head name))
-    (symbol (string-equal (symbol-name head) name))
-    (otherwise nil)))
 
 (defun symbol-string-name (expr)
   "Return the bare symbol name EXPR denotes, or NIL when EXPR is not a symbol."

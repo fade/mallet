@@ -5,6 +5,8 @@
    (#:base #:mallet/rules/base)
    (#:parser #:mallet/parser)
    (#:violation #:mallet/violation))
+  (:import-from #:mallet/rules/base
+                #:form-head-name-p)
   (:export #:no-ignore-errors-rule))
 (in-package #:mallet/rules/forms/no-ignore-errors)
 
@@ -20,13 +22,6 @@
    :type :form)
   (:documentation "Rule to detect use of ignore-errors, which silently swallows all errors.
 Use handler-case with specific condition types instead."))
-
-(defun form-head-name-p (head name)
-  "Check if HEAD (a string symbol or interned CL symbol) matches NAME (case-insensitive)."
-  (typecase head
-    (string (base:symbol-matches-p head name))
-    (symbol (string-equal (symbol-name head) name))
-    (otherwise nil)))
 
 (defmethod base:check-form ((rule no-ignore-errors-rule) form file)
   "Check for runtime uses of ignore-errors."

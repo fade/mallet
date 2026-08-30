@@ -67,13 +67,6 @@ Handles:
        t)
       (t nil))))
 
-(defun form-head-name-matches-p (head name)
-  "Return T if HEAD (parser string or interned CL symbol) matches NAME."
-  (typecase head
-    (string (base:symbol-matches-p head name))
-    (symbol (string-equal (symbol-name head) name))
-    (otherwise nil)))
-
 (defmethod base:check-form ((rule runtime-unintern-rule) form file)
   "Check FORM from FILE for runtime cl:unintern usage."
   (check-type form parser:form)
@@ -112,7 +105,7 @@ Handles:
                          (rest-args (rest current-expr)))
 
                      ;; Skip DEFMACRO bodies entirely (compile-time, not runtime)
-                     (when (form-head-name-matches-p head "DEFMACRO")
+                     (when (base:form-head-name-p head "DEFMACRO")
                        (return-from check-expr nil))
 
                      ;; Direct call: (unintern ...)
@@ -122,7 +115,7 @@ Handles:
                              violations))
 
                      ;; (funcall #'unintern ...) or (funcall 'unintern ...)
-                     (when (and (form-head-name-matches-p head "FUNCALL")
+                     (when (and (base:form-head-name-p head "FUNCALL")
                                 (consp rest-args)
                                 (unintern-symbol-p (first rest-args))
                                 (base:should-create-violation-p rule))
@@ -131,7 +124,7 @@ Handles:
                              violations))
 
                      ;; (apply #'unintern ...) or (apply 'unintern ...)
-                     (when (and (form-head-name-matches-p head "APPLY")
+                     (when (and (base:form-head-name-p head "APPLY")
                                 (consp rest-args)
                                 (unintern-symbol-p (first rest-args))
                                 (base:should-create-violation-p rule))

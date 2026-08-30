@@ -83,6 +83,31 @@
       (ok (= 1 (length violations)))
       (ok (= 2 (violation:violation-line (first violations)))))))
 
+;;; Keyword in head position is data, never an operator
+
+(deftest runtime-unintern-keyword-head-is-data-not-an-operator
+  (testing "Keyword-headed funcall rows in a backquoted table are silent"
+    (ok (null (check-runtime-unintern "(defun unintern-rows (x)
+  `((:funcall #'cl:unintern ,x)
+    (:funcall #'cl:unintern ,x)))"))))
+
+  (testing "Keyword-headed apply rows in a backquoted table are silent"
+    (ok (null (check-runtime-unintern "(defun unintern-rows (x)
+  `((:apply #'cl:unintern ,x)
+    (:apply #'cl:unintern ,x)))"))))
+
+  ;; Known positive, so a run that reports nothing at all cannot pass as clean.
+  ;; The compile-time exit only suppresses the subtree it is walking, and a
+  ;; nested row is reached anyway through the enclosing form's own recursion,
+  ;; so a top-level row is the case that actually discriminates here.
+  (testing "A top-level :defmacro row does not take the compile-time exit"
+    (let ((violations (check-runtime-unintern "(:defmacro alpha (cl:unintern sym))")))
+      (ok (= 1 (length violations)))
+      (ok (eq :runtime-unintern (violation:violation-rule (first violations))))))
+
+  (testing "A real defmacro body is still skipped"
+    (ok (null (check-runtime-unintern "(defmacro with-unintern (x) (cl:unintern x))")))))
+
 ;;; Registration tests
 
 (deftest runtime-unintern-registration
