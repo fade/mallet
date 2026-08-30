@@ -40,6 +40,35 @@
     (ok (null (check-ignore-errors
                "(defmacro safe-call (form) `(ignore-errors ,form))")))))
 
+;;; A keyword in head position is a data value, never an operator.
+;;; Every row below holds the row shape constant and varies only what sits at
+;;; the head, so the head is the single free variable. The last row is a known
+;;; positive: genuine code reached through an unquote, which must still report,
+;;; so a silent run cannot pass for a clean one.
+
+(deftest ignore-errors-keyword-head-is-data
+  (testing "Quoted data rows with a keyword head are silent"
+    (ok (null (check-ignore-errors
+               "(defparameter *rows* '((:ignore-errors a b) (:ignore-errors c d)))"))))
+
+  (testing "Backquoted data rows with a keyword head are silent"
+    (ok (null (check-ignore-errors
+               "(defun rows (x) `((:ignore-errors a ,x) (:ignore-errors c ,x)))"))))
+
+  (testing "Backquoted data rows with a non-keyword head are silent"
+    (ok (null (check-ignore-errors
+               "(defun rows (x) `((alpha a ,x) (beta c ,x)))"))))
+
+  (testing "Keyword head in an option list is silent"
+    (ok (null (check-ignore-errors
+               "(defclass thing () () (:ignore-errors \"not an operator\"))"))))
+
+  (testing "Known positive: code reached through an unquote still reports"
+    (let ((violations (check-ignore-errors
+                       "(defun wrap (x) `(outer ,(ignore-errors (risky x))))")))
+      (ok (= (length violations) 1))
+      (ok (eq (violation:violation-rule (first violations)) :no-ignore-errors)))))
+
 ;;; Invalid cases (violations expected)
 
 (deftest ignore-errors-usage-direct

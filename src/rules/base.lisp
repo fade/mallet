@@ -21,6 +21,7 @@
            #:symbol-name-from-string
            #:symbol-matches-p
            #:keyword-symbol-string-p
+           #:form-head-name-p
            #:coalton-form-p
            #:check-text
            #:check-tokens
@@ -131,6 +132,26 @@ Keyword symbols are self-evaluating data values, not operators or form heads."
   (and (stringp str)
        (> (length str) 0)
        (char= (char str 0) #\:)))
+
+(defun form-head-name-p (head name)
+  "Check if HEAD, in the operator position of a form, names NAME (case-insensitive).
+
+The `string' branch handles symbols produced by the custom Eclector parse-result client
+(mallet/parser), which represents all user-written symbols as strings.  The `symbol'
+branch handles the handful of symbols that Eclector interns directly because they arise
+from reader macros: FUNCTION (from #') and QUOTE (from ').
+
+A keyword never names an operator. Its leading colon satisfies the colon test in
+symbol-matches-p, so without the guard here a data row such as (:IGNORE-ERRORS ...)
+inside a backquote reads as a call to IGNORE-ERRORS. Use this rather than
+symbol-matches-p wherever a rule dispatches on the head of a form; symbol-matches-p
+still answers the different question of whether a name matches at all, which is what
+option lists such as (:DOCUMENTATION \"...\") need."
+  (typecase head
+    (string (and (not (keyword-symbol-string-p head))
+                 (symbol-matches-p head name)))
+    (symbol (string-equal (symbol-name head) name))
+    (otherwise nil)))
 
 (defun coalton-form-p (form)
   "Check if FORM is a Coalton toplevel form.

@@ -106,6 +106,29 @@
     (ok (null (check-broad-handler
                "(defmacro safe-call (form) `(ignore-errors ,form))")))))
 
+;;; A keyword in head position is a data value, never an operator.
+;;; Each row holds the row shape constant and varies only the head.
+
+(deftest broad-handler-keyword-head-is-data
+  (testing "Known positive: blanket clause returning nil"
+    (ok (= 1 (length (check-broad-handler *known-positive*)))))
+
+  (testing "Quoted data rows with a keyword head are silent"
+    (ok (null (check-broad-handler
+               "(defparameter *rows* '((:ignore-errors a b) (:ignore-errors c d)))"))))
+
+  (testing "Backquoted data rows with a keyword head are silent"
+    (ok (null (check-broad-handler
+               "(defun rows (x) `((:ignore-errors a ,x) (:ignore-errors c ,x)))"))))
+
+  (testing "Backquoted data rows with a non-keyword head are silent"
+    (ok (null (check-broad-handler
+               "(defun rows (x) `((alpha a ,x) (beta c ,x)))"))))
+
+  (testing "Known positive: code reached through an unquote still reports"
+    (ok (= 1 (length (check-broad-handler
+                      "(defun wrap (x) `(outer ,(ignore-errors (risky x))))"))))))
+
 ;;; Clauses that keep the condition available
 
 (deftest blanket-clause-preserved-condition

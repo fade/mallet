@@ -1,0 +1,7 @@
+# Expected violations for keyword-head-data.lisp
+# Format: line:column rule-name severity
+#
+# Only the unquoted call reports. Every keyword-headed row above it is data.
+
+20:11 no-ignore-errors warning
+20:11 broad-handler-swallow warning
