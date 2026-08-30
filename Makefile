@@ -51,7 +51,13 @@ test-cli:
 bundle:
 	@qlot bundle --exclude mallet/tests
 
+# The binary is deleted before dumping on purpose. ASDF treats an existing
+# image as up to date when no source file has changed, so a rebuild after a
+# commit would skip the dump and leave the previous commit's identity baked in.
+# A binary that names a commit it was not built from is the defect --version
+# exists to prevent, so correctness wins over the cost of always dumping.
 build:
+	@rm -f mallet
 	@sbcl --noinform --non-interactive \
 		--load init.lisp --eval "(asdf:make :mallet/executable)"
 
