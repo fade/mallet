@@ -85,6 +85,37 @@
 
    (:file "main")))
 
+(defun mallet-build-identity ()
+  "Return the commit the mallet source tree is at and whether it has been edited.
+
+The first value is a short commit string, or :UNKNOWN when git is absent, the
+tree is not a repository, or the call failed. The second is :CLEAN, :DIRTY or
+:UNKNOWN, counting tracked files only. Neither value is ever NIL, because NIL in
+the built image means no build identity was recorded at all."
+  (let ((root (native-namestring (system-source-directory "mallet"))))
+    (flet ((git (&rest arguments)
+             (handler-case
+                 (multiple-value-bind (output error-output code)
+                     (run-program (list* "git" "-C" root arguments)
+                                  :output '(:string :stripped t)
+                                  :error-output nil
+                                  :ignore-error-status t)
+                   (declare (ignore error-output))
+                   (and (eql code 0) output))
+               (error (condition)
+                 (format *error-output*
+                         "mallet: cannot run git for build identity: ~A~%"
+                         condition)
+                 nil))))
+      (let ((commit (git "rev-parse" "--short" "HEAD")))
+        (if (and commit (plusp (length commit)))
+            (let ((status (git "status" "--porcelain" "-uno")))
+              (values commit
+                      (cond ((null status) :unknown)
+                            ((plusp (length status)) :dirty)
+                            (t :clean))))
+            (values :unknown :unknown))))))
+
 (defsystem "mallet/executable"
   :description "Executable build target for Mallet. Depends on flexi-streams so that cl-unicode's build-time subsystem is resolvable in bundled (no-Quicklisp) environments."
   :depends-on ("mallet"
@@ -97,6 +128,20 @@
   ;; (~5x smaller). The :before method on program-op still runs and sets
   ;; *image-entry-point* from :entry-point above.
   :perform (program-op (op c)
+            ;; Stamp the commit into the image being dumped. This runs in the
+            ;; building image, so the value is read now; written into a source
+            ;; file with a #. it would freeze when that file was compiled and
+            ;; then go stale without ever saying so.
+            (handler-case
+                (multiple-value-bind (commit dirty) (mallet-build-identity)
+                  (setf (symbol-value (find-symbol "*BUILD-COMMIT*" "MALLET"))
+                        commit)
+                  (setf (symbol-value (find-symbol "*BUILD-DIRTY*" "MALLET"))
+                        dirty))
+              (error (condition)
+                (format *error-output*
+                        "mallet: build identity not recorded: ~A~%"
+                        condition)))
             (uiop:dump-image (asdf:output-file op c)
                              :executable t
                              #+sb-core-compression :compression

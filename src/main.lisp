@@ -72,8 +72,38 @@
   "When T, enable detailed diagnostic output.")
 
 (defparameter *version*
-  #.(asdf:component-version (asdf:find-system :mallet))
-  "Mallet version string, embedded at compile time from mallet.asd.")
+  (asdf:component-version (asdf:find-system "mallet"))
+  "Mallet version string, read from mallet.asd when this file is loaded.")
+
+(defvar *build-commit* nil
+  "Short git commit the running image was built from.
+
+A string names the commit. :UNKNOWN means the build ran but could not read one.
+NIL means no build identity was recorded at all, which is what running straight
+from source looks like. NIL never means the tree was clean.")
+
+(defvar *build-dirty* nil
+  "Whether tracked files were modified in the tree the image was built from.
+
+:CLEAN and :DIRTY are the two determinations. :UNKNOWN means the build ran but
+could not tell. NIL means no build identity was recorded at all. NIL never means
+the tree was clean.")
+
+(defun build-identity-description ()
+  "Return a one-line account of where the running image came from.
+
+Says so plainly when there is no build identity, and says unknown when the build
+could not read one. Neither case is ever reported as a clean tree."
+  (cond ((null *build-commit*)
+         "Running from source; no build identity recorded.")
+        ((stringp *build-commit*)
+         (format nil "Built from commit ~A (~A)."
+                 *build-commit*
+                 (case *build-dirty*
+                   (:dirty "tree had uncommitted changes: DIRTY")
+                   (:clean "clean tree")
+                   (t "tree state unknown"))))
+        (t "Built, but the build could not determine a commit: identity unknown.")))
 
 ;;; Public library API
 
@@ -448,7 +478,8 @@ Signals specific error conditions for invalid input."
            (print-help)
            (uiop:quit 0))
           ((string= arg "--version")
-           (format t "Mallet version ~A~%" *version*)
+           (format t "Mallet version ~A~%~A~%"
+                   *version* (build-identity-description))
            (uiop:quit 0))
           ((string= arg "--")
            (setf files (append (reverse args) files))
