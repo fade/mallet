@@ -155,7 +155,8 @@ the built image means no build identity was recorded at all."
   :pathname "tests"
   :serial t
   :components
-  ((:file "errors-test")
+  ((:file "run-guard")
+   (:file "errors-test")
    (:file "utils-test")
    (:file "config-test")
    (:file "config-directives-test")
@@ -243,4 +244,5 @@ the built image means no build identity was recorded at all."
      (:file "coalton-missing-to-boolean-test")
      (:file "coalton-cyclomatic-complexity-test"))))
 
-  :perform (test-op (o c) (symbol-call :rove '#:run c)))
+  :perform (test-op (o c)
+             (uiop:symbol-call :mallet/tests/run-guard '#:run-guarded c)))
