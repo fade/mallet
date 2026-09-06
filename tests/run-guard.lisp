@@ -65,32 +65,41 @@ move it into whichever package happens to be current at the time."
     (suite:set-test name function)))
 
 (defun run-guarded (system)
-  "Run SYSTEM's tests and signal an error if not one test body was entered.
+  "Load SYSTEM, run its tests, and signal an error if not one test body was entered.
 
 A runner that silently skips every test is worse than one that fails: it
 reports success and hides whatever broke. The only trustworthy evidence that
 tests ran is the tests themselves being entered, so that is what decides here
 rather than the run's own summary. Reported test failures are left alone and
-returned as usual."
-  (let ((names (registered-test-symbols))
-        (suite-count (length (suite:all-suites)))
-        (entered 0)
-        (originals '()))
-    (unwind-protect
-         (progn
-           (dolist (name names)
-             (let ((original (suite:get-test name)))
-               (when (functionp original)
-                 (push (cons name original) originals)
-                 (set-test-function name
-                                    (lambda (&rest arguments)
-                                      (incf entered)
-                                      (apply original arguments))))))
-           (let ((result (rove:run system)))
-             (when (zerop entered)
-               (error 'no-tests-invoked
-                      :suite-count suite-count
-                      :test-count (length names)))
-             result))
-      (loop for (name . original) in originals
-            do (set-test-function name original)))))
+returned as usual.
+
+The load belongs here, inside one ASDF session shared with the run, because
+rove loads the system again on its way into the suites. A second load
+re-evaluates every deftest and files a fresh function under each test name,
+which would throw away the counting wrappers installed before it and leave
+every run looking empty. Within a session ASDF performs a given load once, so
+rove's load finds the work already done and the wrappers survive to be called."
+  (asdf/session:with-asdf-session ()
+    (asdf:load-system system)
+    (let ((names (registered-test-symbols))
+          (suite-count (length (suite:all-suites)))
+          (entered 0)
+          (originals '()))
+      (unwind-protect
+           (progn
+             (dolist (name names)
+               (let ((original (suite:get-test name)))
+                 (when (functionp original)
+                   (push (cons name original) originals)
+                   (set-test-function name
+                                      (lambda (&rest arguments)
+                                        (incf entered)
+                                        (apply original arguments))))))
+             (let ((result (rove:run system)))
+               (when (zerop entered)
+                 (error 'no-tests-invoked
+                        :suite-count suite-count
+                        :test-count (length names)))
+               result))
+        (loop for (name . original) in originals
+              do (set-test-function name original))))))

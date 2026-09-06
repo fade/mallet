@@ -32,12 +32,16 @@ help:
 
 test: test-unit test-cli
 
+# The run goes through run-guarded rather than rove:run directly. A run that
+# enters no test body at all still reports success, so this target would pass
+# while checking nothing; the guard fails it instead. Reported test failures
+# are still the `or' below's business.
 test-unit:
 	@echo "Running unit tests..."
 	@qlot exec sbcl --noinform --non-interactive \
 		--eval "(when (find-package '#:qlot/local-init/setup) (setf (symbol-value (find-symbol \"*PROJECT-ROOT*\" '#:qlot/local-init/setup)) #p\"$(CURDIR)/\"))" \
 		--eval '(asdf:load-system :mallet/tests)' \
-		--eval '(or (rove:run :mallet/tests) (uiop:quit -1))'
+		--eval '(or (mallet/tests/run-guard:run-guarded :mallet/tests) (uiop:quit -1))'
 
 test-cli:
 	@echo ""
