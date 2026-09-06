@@ -22,17 +22,24 @@ Rules must report only definite, unambiguous issues. No subjective style prefere
 ./bin/mallet .                                # Lint (must pass with zero violations)
 ./bin/mallet --fix .                          # Auto-fix violations
 
-# FASL cache isolation (use ASDF_OUTPUT_TRANSLATIONS, NOT XDG_CACHE_HOME — see critical-rules.md)
-_cache="$(pwd)/.cache"
-_aot='(:output-translations (t ("'"$_cache"'/" :implementation)) :ignore-inherited-configuration)'
-
-ASDF_OUTPUT_TRANSLATIONS="$_aot" qlot exec sbcl --noinform --non-interactive \
+# init.lisp bootstraps the bundled dependencies, the same way the build does.
+sbcl --noinform --non-interactive --load init.lisp \
   --eval '(asdf:test-system "mallet")'        # Run all tests
-ASDF_OUTPUT_TRANSLATIONS="$_aot" qlot exec sbcl --noinform --non-interactive \
+sbcl --noinform --non-interactive --load init.lisp \
   --eval '(asdf:load-system "mallet/tests")' \
-  --eval '(rove:run-suite :mallet/tests/rules/<name>)'  # Run specific test suite
+  --eval '(rove:run-suite :mallet/tests/rules/<name>)'  # Run one test suite
 command make                                  # Build standalone executable
 ```
+
+Two things to know before you trust a test result:
+
+- **Leave `ASDF_OUTPUT_TRANSLATIONS` unset for the test commands.** Setting it sends compiled
+  output away from the sources, and a rove predating the fix for that keys its file-to-package
+  table on the compiled path, so it discovers no tests and the run reports success having executed
+  none. `test-system` now fails loudly instead of reporting that green, but the tests still do not
+  run, so you get no coverage either way.
+- **`test-system` exits 0 even when tests fail.** Read the summary rather than the exit status, or
+  check the failure count yourself if you are wiring this into anything automated.
 
 
 ## ASDF Gotcha
