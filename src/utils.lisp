@@ -10,7 +10,9 @@
    #:proper-list-of-exact-length-p
    #:proper-list-of-length-range-p
    #:debug-mode-p
-   #:resolve-rule-alias))
+   #:resolve-rule-alias
+   #:*non-source-directory-names*
+   #:excluded-directory-p))
 (in-package #:mallet/utils)
 
 (defun symbol-name-from-string (str)
@@ -117,3 +119,20 @@ This combines proper-list-p and length checking in a single traversal for effici
     (when canonical
       (warn "Rule name ~S is deprecated; use ~S instead." name canonical))
     (or canonical name)))
+
+;;; Source tree scanning
+
+(defparameter *non-source-directory-names*
+  '("node_modules" "_build")
+  "Visible directory names that never hold project source.
+Dot-directories are excluded by name shape instead of being listed here.")
+
+(defun excluded-directory-p (name)
+  "Return T when a subdirectory called NAME holds no source a linter should read.
+Dependency checkouts, build output, version control metadata and editor state all
+hide in dot-directories, so testing the name shape covers every such tool at once
+and keeps tool names out of this file."
+  (and (stringp name)
+       (plusp (length name))
+       (or (char= (char name 0) #\.)
+           (member name *non-source-directory-names* :test #'string=))))

@@ -53,13 +53,6 @@ Collects all symbols from all :export clauses."
 
 ;;; File scanning
 
-(defparameter *excluded-dirs*
-  '(".qlot" ".bundle-libs" ".git" ".svn" ".hg" "node_modules" "_build" ".cache" ".claude"
-    ".zig-cache")
-  "Directory names to skip when scanning for Lisp files.
-NOTE: A parallel list exists in the EXCLUDED-DIRS local binding inside EXPAND-FILE-ARGS
-in src/main.lisp. Keep both lists in sync whenever adding or removing entries.")
-
 (defun run-file-lister (argv)
   "Run ARGV as a subprocess and return a list of pathnames from its stdout lines.
 Returns NIL if the process cannot be launched or exits with code > 1."
@@ -78,23 +71,27 @@ Returns NIL if the process cannot be launched or exits with code > 1."
             collect (pathname line)))))
 
 (defun collect-lisp-files-with-rg (root)
-  "Use ripgrep to list .lisp files under ROOT, respecting *EXCLUDED-DIRS*.
+  "Use ripgrep to list .lisp files under ROOT, skipping directories with no project source.
 Returns a list of pathnames, or NIL if rg is unavailable or fails."
-  (let ((exclude-globs (loop for d in *excluded-dirs*
+  (let ((exclude-globs (loop for d in utils:*non-source-directory-names*
                              append (list "--glob" (concatenate 'string "!" d "/**")))))
     (run-file-lister `("rg" "--files" "--no-ignore" "--glob" "*.lisp"
+                       ;; Stated rather than left to the default, so a later
+                       ;; --hidden cannot quietly pull tooling state into the scan.
+                       "--glob" "!.*"
                        ,@exclude-globs ,(namestring root)))))
 
 (defun collect-lisp-files-with-grep (root)
-  "Use grep to list .lisp files under ROOT, respecting *EXCLUDED-DIRS*.
+  "Use grep to list .lisp files under ROOT, skipping directories with no project source.
 Returns a list of pathnames, or NIL if grep is unavailable or fails."
-  (let ((exclude-dir-args (loop for d in *excluded-dirs*
+  (let ((exclude-dir-args (loop for d in utils:*non-source-directory-names*
                                 append (list "--exclude-dir" d))))
     (run-file-lister `("grep" "-rl" "--include=*.lisp"
+                       "--exclude-dir" ".*"
                        ,@exclude-dir-args "" ,(namestring root)))))
 
 (defun collect-lisp-files-with-uiop (root)
-  "Recursively collect .lisp files under ROOT using UIOP, skipping *EXCLUDED-DIRS*."
+  "Recursively collect .lisp files under ROOT using UIOP, skipping directories with no project source."
   (let ((result '()))
     (labels ((recurse (d)
                (handler-case
@@ -103,7 +100,7 @@ Returns a list of pathnames, or NIL if grep is unavailable or fails."
                        (push f result))
                      (dolist (subdir (uiop:subdirectories d))
                        (let ((name (car (last (pathname-directory subdir)))))
-                         (unless (member name *excluded-dirs* :test #'string=)
+                         (unless (utils:excluded-directory-p name)
                            (recurse subdir)))))
                  (error () nil))))
       (recurse root))

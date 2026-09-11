@@ -579,10 +579,7 @@ Examples:
   "Expand FILE-ARGS into a list of Lisp source file pathnames.
 Handles wildcards and directories, excluding common non-source directories."
   (let ((files '())
-        (source-patterns '("*.lisp" "*.asd"))
-        ;; NOTE: A parallel list exists as *EXCLUDED-DIRS* in
-        ;; src/rules/forms/package-exports.lisp. Keep both in sync.
-        (excluded-dirs '(".qlot" ".bundle-libs" ".git" ".svn" ".hg" "node_modules" "_build" ".claude" ".cache" ".zig-cache")))
+        (source-patterns '("*.lisp" "*.asd")))
     (labels ((collect-source-files (dir)
                "Recursively collect supported source files under DIR, skipping excluded subdirectories."
                (let ((result '()))
@@ -592,7 +589,7 @@ Handles wildcards and directories, excluding common non-source directories."
                  ;; Recurse into subdirectories, skipping excluded ones
                  (dolist (subdir (uiop:subdirectories dir))
                    (let ((dirname (car (last (pathname-directory subdir)))))
-                     (unless (member dirname excluded-dirs :test #'string=)
+                     (unless (utils:excluded-directory-p dirname)
                        (setf result (nconc result (collect-source-files subdir))))))
                  result)))
       (dolist (arg file-args)
