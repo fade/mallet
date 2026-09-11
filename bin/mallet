@@ -22,9 +22,24 @@ else
   exit 1
 fi
 
-# Run with SBCL
-exec sbcl --noinform --non-interactive \
+# Run with SBCL.
+#
+# Only the linter's own records belong on stdout, so a caller can pipe them into another
+# program. Everything the setup and the system load have to say is a diagnostic and goes to
+# stderr instead. The redirection covers both setup branches, because which branch runs is
+# decided by what happens to be installed and the output contract must not depend on that.
+#
+# stderr is deliberately left alone: a setup that fails silently is a worse fault than
+# chatter in the wrong place, so this moves the noise rather than discarding it.
+#
+# The init files are skipped so the linter's output depends on the project alone. A personal
+# ~/.sbclrc is free to load whatever it likes and print while doing it, and that lands on
+# stdout ahead of anything mallet controls. Dependencies come from the setup file below.
+exec sbcl --noinform --non-interactive --no-sysinit --no-userinit \
+    --eval '(defparameter *mallet-program-output* *standard-output*)' \
+    --eval '(setf *standard-output* *error-output* *trace-output* *error-output*)' \
     --load "$SETUP_FILE" \
     --eval "(when (find-package '#:qlot/local-init/setup) (setf (symbol-value (find-symbol \"*PROJECT-ROOT*\" '#:qlot/local-init/setup)) #p\"$PROJECT_DIR/\"))" \
-    --eval '(let ((*standard-output* (make-broadcast-stream)) (*error-output* (make-broadcast-stream)) (*trace-output* (make-broadcast-stream))) (asdf:load-system :mallet))' \
+    --eval '(asdf:load-system :mallet)' \
+    --eval '(setf *standard-output* *mallet-program-output*)' \
     --eval "(mallet:main)" -- "$@"
